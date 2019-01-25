@@ -1,6 +1,6 @@
 // +build windows
 
-package winio
+package nsocket
 
 import (
 	"errors"
@@ -20,8 +20,9 @@ import (
 type atomicBool int32
 
 func (b *atomicBool) isSet() bool { return atomic.LoadInt32((*int32)(b)) != 0 }
-func (b *atomicBool) setFalse()   { atomic.StoreInt32((*int32)(b), 0) }
-func (b *atomicBool) setTrue()    { atomic.StoreInt32((*int32)(b), 1) }
+
+func (b *atomicBool) setFalse() { atomic.StoreInt32((*int32)(b), 0) }
+func (b *atomicBool) setTrue()  { atomic.StoreInt32((*int32)(b), 1) }
 func (b *atomicBool) swap(new bool) bool {
 	var newInt int32
 	if new {
@@ -31,13 +32,16 @@ func (b *atomicBool) swap(new bool) bool {
 }
 
 const (
-	cFILE_SKIP_COMPLETION_PORT_ON_SUCCESS = 1
-	cFILE_SKIP_SET_EVENT_ON_HANDLE        = 2
+	cFileSkipCompletionPortOnSuccess = 1
+	cFileSkipSetEventOnHandle        = 2
 )
 
 var (
+	// ErrFileClosed - an error
 	ErrFileClosed = errors.New("file has already been closed")
-	ErrTimeout    = &timeoutError{}
+
+	// ErrTimeout - an error
+	ErrTimeout = &timeoutError{}
 )
 
 type timeoutError struct{}
@@ -49,6 +53,7 @@ func (e *timeoutError) Temporary() bool { return true }
 type timeoutChan chan struct{}
 
 var ioInitOnce sync.Once
+
 var ioCompletionPort syscall.Handle
 
 // ioResult contains the result of an asynchronous IO operation
@@ -99,7 +104,7 @@ func makeWin32File(h syscall.Handle) (*win32File, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = setFileCompletionNotificationModes(h, cFILE_SKIP_COMPLETION_PORT_ON_SUCCESS|cFILE_SKIP_SET_EVENT_ON_HANDLE)
+	err = setFileCompletionNotificationModes(h, cFileSkipCompletionPortOnSuccess|cFileSkipSetEventOnHandle)
 	if err != nil {
 		return nil, err
 	}
@@ -108,9 +113,10 @@ func makeWin32File(h syscall.Handle) (*win32File, error) {
 	return f, nil
 }
 
-func MakeOpenFile(h syscall.Handle) (io.ReadWriteCloser, error) {
-	return makeWin32File(h)
-}
+// // MakeOpenFile - proxy call to makeWin32File
+// func MakeOpenFile(h syscall.Handle) (io.ReadWriteCloser, error) {
+// 	return makeWin32File(h)
+// }
 
 // closeHandle closes the resources associated with a Win32 handle
 func (f *win32File) closeHandle() {

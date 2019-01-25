@@ -1,4 +1,4 @@
-package winio
+package nsocket
 
 import (
 	"bufio"
@@ -17,43 +17,43 @@ var testPipeName = `\\.\pipe\winiotestpipe`
 
 var aLongTimeAgo = time.Unix(1, 0)
 
-func TestDialUnknownFailsImmediately(t *testing.T) {
-	_, err := DialPipe(testPipeName, nil)
+func TestDialWindowsUnknownFailsImmediately(t *testing.T) {
+	_, err := DialWindows(testPipeName, nil)
 	if err.(*os.PathError).Err != syscall.ENOENT {
 		t.Fatalf("expected ENOENT got %v", err)
 	}
 }
 
-func TestDialListenerTimesOut(t *testing.T) {
-	l, err := ListenPipe(testPipeName, nil)
+func TestDialWindowsListenerTimesOut(t *testing.T) {
+	l, err := Listen(testPipeName, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer l.Close()
 	var d = time.Duration(10 * time.Millisecond)
-	_, err = DialPipe(testPipeName, &d)
+	_, err = DialWindows(testPipeName, &d)
 	if err != ErrTimeout {
 		t.Fatalf("expected ErrTimeout, got %v", err)
 	}
 }
 
-func TestDialAccessDeniedWithRestrictedSD(t *testing.T) {
-	c := PipeConfig{
-		SecurityDescriptor: "D:P(A;;0x1200FF;;;WD)",
-	}
-	l, err := ListenPipe(testPipeName, &c)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer l.Close()
-	_, err = DialPipe(testPipeName, nil)
-	if err.(*os.PathError).Err != syscall.ERROR_ACCESS_DENIED {
-		t.Fatalf("expected ERROR_ACCESS_DENIED, got %v", err)
-	}
-}
+// func TestDialWindowsAccessDeniedWithRestrictedSD(t *testing.T) {
+// 	c := PipeConfig{
+// 		SecurityDescriptor: "D:P(A;;0x1200FF;;;WD)",
+// 	}
+// 	l, err := ListenPipe(testPipeName, &c)
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
+// 	defer l.Close()
+// 	_, err = DialWindows(testPipeName, nil)
+// 	if err.(*os.PathError).Err != syscall.ERROR_ACCESS_DENIED {
+// 		t.Fatalf("expected ERROR_ACCESS_DENIED, got %v", err)
+// 	}
+// }
 
 func getConnection(cfg *PipeConfig) (client net.Conn, server net.Conn, err error) {
-	l, err := ListenPipe(testPipeName, cfg)
+	l, err := Listen(testPipeName, cfg)
 	if err != nil {
 		return
 	}
@@ -69,7 +69,7 @@ func getConnection(cfg *PipeConfig) (client net.Conn, server net.Conn, err error
 		ch <- response{c, err}
 	}()
 
-	c, err := DialPipe(testPipeName, nil)
+	c, err := DialWindows(testPipeName, nil)
 	if err != nil {
 		return
 	}
@@ -124,8 +124,8 @@ func server(l net.Listener, ch chan int) {
 	ch <- 1
 }
 
-func TestFullListenDialReadWrite(t *testing.T) {
-	l, err := ListenPipe(testPipeName, nil)
+func TestFullListenDialWindowsReadWrite(t *testing.T) {
+	l, err := Listen(testPipeName, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -134,7 +134,7 @@ func TestFullListenDialReadWrite(t *testing.T) {
 	ch := make(chan int)
 	go server(l, ch)
 
-	c, err := DialPipe(testPipeName, nil)
+	c, err := DialWindows(testPipeName, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -163,7 +163,7 @@ func TestFullListenDialReadWrite(t *testing.T) {
 }
 
 func TestCloseAbortsListen(t *testing.T) {
-	l, err := ListenPipe(testPipeName, nil)
+	l, err := Listen(testPipeName, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -243,7 +243,7 @@ func TestCloseWriteEOF(t *testing.T) {
 }
 
 func TestAcceptAfterCloseFails(t *testing.T) {
-	l, err := ListenPipe(testPipeName, nil)
+	l, err := Listen(testPipeName, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -254,20 +254,20 @@ func TestAcceptAfterCloseFails(t *testing.T) {
 	}
 }
 
-func TestDialTimesOutByDefault(t *testing.T) {
-	l, err := ListenPipe(testPipeName, nil)
+func TestDialWindowsTimesOutByDefault(t *testing.T) {
+	l, err := Listen(testPipeName, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer l.Close()
-	_, err = DialPipe(testPipeName, nil)
+	_, err = DialWindows(testPipeName, nil)
 	if err != ErrTimeout {
 		t.Fatalf("expected ErrTimeout, got %v", err)
 	}
 }
 
 func TestTimeoutPendingRead(t *testing.T) {
-	l, err := ListenPipe(testPipeName, nil)
+	l, err := Listen(testPipeName, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -285,7 +285,7 @@ func TestTimeoutPendingRead(t *testing.T) {
 		close(serverDone)
 	}()
 
-	client, err := DialPipe(testPipeName, nil)
+	client, err := DialWindows(testPipeName, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -314,7 +314,7 @@ func TestTimeoutPendingRead(t *testing.T) {
 }
 
 func TestTimeoutPendingWrite(t *testing.T) {
-	l, err := ListenPipe(testPipeName, nil)
+	l, err := Listen(testPipeName, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -332,7 +332,7 @@ func TestTimeoutPendingWrite(t *testing.T) {
 		close(serverDone)
 	}()
 
-	client, err := DialPipe(testPipeName, nil)
+	client, err := DialWindows(testPipeName, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -369,7 +369,7 @@ func TestEchoWithMessaging(t *testing.T) {
 		InputBufferSize:  65536, // Use 64KB buffers to improve performance
 		OutputBufferSize: 65536,
 	}
-	l, err := ListenPipe(testPipeName, &c)
+	l, err := Listen(testPipeName, &c)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -391,7 +391,7 @@ func TestEchoWithMessaging(t *testing.T) {
 		close(listenerDone)
 	}()
 	timeout := 1 * time.Second
-	client, err := DialPipe(testPipeName, &timeout)
+	client, err := DialWindows(testPipeName, &timeout)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -427,7 +427,7 @@ func TestEchoWithMessaging(t *testing.T) {
 }
 
 func TestConnectRace(t *testing.T) {
-	l, err := ListenPipe(testPipeName, nil)
+	l, err := Listen(testPipeName, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -447,7 +447,7 @@ func TestConnectRace(t *testing.T) {
 	}()
 
 	for i := 0; i < 1000; i++ {
-		c, err := DialPipe(testPipeName, nil)
+		c, err := DialWindows(testPipeName, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -459,7 +459,7 @@ func TestMessageReadMode(t *testing.T) {
 	var wg sync.WaitGroup
 	defer wg.Wait()
 
-	l, err := ListenPipe(testPipeName, &PipeConfig{MessageMode: true})
+	l, err := Listen(testPipeName, &PipeConfig{MessageMode: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -481,7 +481,7 @@ func TestMessageReadMode(t *testing.T) {
 		s.Close()
 	}()
 
-	c, err := DialPipe(testPipeName, nil)
+	c, err := DialWindows(testPipeName, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -490,7 +490,7 @@ func TestMessageReadMode(t *testing.T) {
 	setNamedPipeHandleState := syscall.NewLazyDLL("kernel32.dll").NewProc("SetNamedPipeHandleState")
 
 	p := c.(*win32MessageBytePipe)
-	mode := uint32(cPIPE_READMODE_MESSAGE)
+	mode := uint32(cPipeReadModeMessage)
 	if s, _, err := setNamedPipeHandleState.Call(uintptr(p.handle), uintptr(unsafe.Pointer(&mode)), 0, 0); s == 0 {
 		t.Fatal(err)
 	}

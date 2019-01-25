@@ -1,22 +1,43 @@
-# go-winio
+# nsocket
 
-This repository contains utilities for efficiently performing Win32 IO operations in
-Go. Currently, this is focused on accessing named pipes and other file handles, and
-for using named pipes as a net transport.
+A fork of (go-winio)[https://github.com/Microsoft/go-winio] that aims to allow windows or unix named sockets.
 
-This code relies on IO completion ports to avoid blocking IO on system threads, allowing Go
-to reuse the thread to schedule another goroutine. This limits support to Windows Vista and
-newer operating systems. This is similar to the implementation of network sockets in Go's net
-package.
+## how to
 
-Please see the LICENSE file for licensing information.
+```golang
+package main
 
-This project has adopted the [Microsoft Open Source Code of
-Conduct](https://opensource.microsoft.com/codeofconduct/). For more information
-see the [Code of Conduct
-FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or contact
-[opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional
-questions or comments.
+import (
+	"bufio"
+	"log"
+	"strings"
+	"time"
 
-Thanks to natefinch for the inspiration for this library. See https://github.com/natefinch/npipe
-for another named pipe implementation.
+	"github.com/benitogf/nsocket"
+)
+
+func main() {
+	name := "test"
+	go nsocket.Start(name)
+	time.Sleep(1 * time.Second) // wait for it
+	c, err := nsocket.Dial(name)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer c.Close()
+	rw := bufio.NewReadWriter(bufio.NewReader(c), bufio.NewWriter(c))
+	err = nsocket.Write(rw, "init")
+	if err != nil {
+		log.Fatal(err)
+	}
+	for {
+		buf, err := nsocket.Read(rw)
+		if err != nil {
+			log.Println(err)
+			break
+		}
+		buf = strings.Trim(buf, "\n")
+		log.Println("client", buf)
+	}
+}
+```
