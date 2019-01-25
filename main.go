@@ -8,6 +8,8 @@ import (
 	"strings"
 )
 
+var pool = []*bufio.ReadWriter{}
+
 // Read a string from a named socket buffer
 func Read(rw *bufio.ReadWriter) (string, error) {
 	buf, err := rw.ReadString('\n')

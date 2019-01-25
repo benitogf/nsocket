@@ -1,9 +1,6 @@
-// +build windows
-
 package nsocket
 
 import (
-	"bufio"
 	"errors"
 	"io"
 	"net"
@@ -50,8 +47,6 @@ var (
 
 	errPipeWriteClosed = errors.New("pipe has been closed for write")
 )
-
-var pool = []*bufio.ReadWriter{}
 
 type win32Pipe struct {
 	*win32File
