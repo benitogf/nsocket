@@ -29,23 +29,6 @@ func TestStartAndDial(t *testing.T) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	go func() {
-		for {
-			msg, err := client.Read()
-			if err != nil {
-				log.Fatal(err)
-				break
-			}
-			// log.Println(msg)
-			count++
-			if msg == "test9" {
-				client.Close()
-				ns.Close()
-				break
-			}
-		}
-		require.Equal(t, 9, count)
-	}()
 
 	// Write from client
 	for i := 1; i <= 9; i++ {
@@ -54,4 +37,20 @@ func TestStartAndDial(t *testing.T) {
 			log.Fatal("errClientWrite ", err)
 		}
 	}
+
+	for {
+		msg, err := client.Read()
+		if err != nil {
+			log.Fatal(err)
+			break
+		}
+		// log.Println(msg)
+		count++
+		if msg == "test9" {
+			client.Close()
+			ns.Close()
+			break
+		}
+	}
+	require.Equal(t, 9, count)
 }
