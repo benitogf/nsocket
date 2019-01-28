@@ -6,8 +6,12 @@ os:
 go:
   - 1.11.x
 
+before_install:
+  # Go1.11 requires GCC to run go test
+  - if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then choco install -y mingw; export PATH=/c/tools/mingw64/bin:"$PATH"; fi
+
 install:
-  - go get golang.org/x/sys
+  - go get -u golang.org/x/sys
   - go get github.com/stretchr/testify
 
 script: go test -v -coverprofile cover.out -count 1 -failfast
