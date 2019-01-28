@@ -1,5 +1,11 @@
 # nsocket
 
+[![Build Status][build-image]][build-url]
+
+
+[build-url]: https://travis-ci.org/benitogf/nsocket
+[build-image]: https://api.travis-ci.org/benitogf/nsocket.svg?branch=master&style=flat-square
+
 A fork of [go-winio](https://github.com/Microsoft/go-winio), windows/unix named socket server and client utility
 
 ## how to
