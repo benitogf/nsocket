@@ -29,14 +29,15 @@ func TestStartAndDial(t *testing.T) {
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	// Write from client
-	for i := 1; i <= 9; i++ {
-		err = client.Write("test" + strconv.Itoa(i))
-		if err != nil {
-			log.Fatal("errClientWrite ", err)
+	go func() {
+		// Write from client
+		for i := 1; i <= 9; i++ {
+			err = client.Write("test" + strconv.Itoa(i))
+			if err != nil {
+				log.Fatal("errClientWrite ", err)
+			}
 		}
-	}
+	}()
 
 	for {
 		msg, err := client.Read()
