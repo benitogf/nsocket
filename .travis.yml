@@ -1,5 +1,7 @@
 language: go
-dist: xenial
+os:
+  - linux
+  - windows
 
 go:
   - 1.11.x
