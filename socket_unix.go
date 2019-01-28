@@ -1,3 +1,5 @@
+// +build unix
+
 package nsocket
 
 import "net"

@@ -1,39 +1,57 @@
 package nsocket
 
 import (
-	"bufio"
 	"log"
-	"os"
-	"strings"
+	"strconv"
 	"testing"
-	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestStartAndDial(t *testing.T) {
 	name := "test"
-	buf := ""
-	var err error
-	os.RemoveAll("/tmp/" + name + ".sock")
-	go Start(name)
-	time.Sleep(1 * time.Second) // wait for it
-	c, err := Dial(name)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer c.Close()
-	rw := bufio.NewReadWriter(bufio.NewReader(c), bufio.NewWriter(c))
-	err = Write(rw, "init")
-	if err != nil {
-		log.Fatal(err)
-	}
-	for {
-		buf, err = Read(rw)
+
+	// Server
+	ns, err := NewServer(name, func(server *Server, client *Client, message string) {
+		err := server.Broadcast(message)
 		if err != nil {
-			log.Println(err)
-			break
+			log.Fatal("writeErr", err)
 		}
-		buf = strings.Trim(buf, "\n")
-		log.Println("client", buf)
-		break
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	go ns.Start()
+
+	// Client
+	client, err := Dial(name)
+	count := 0
+	if err != nil {
+		log.Fatal(err)
+	}
+	go func() {
+		for {
+			msg, err := client.Read()
+			if err != nil {
+				log.Fatal(err)
+				break
+			}
+			// log.Println(msg)
+			count++
+			if msg == "test9" {
+				client.Close()
+				ns.Close()
+				break
+			}
+		}
+		require.Equal(t, 9, count)
+	}()
+
+	// Write from client
+	for i := 1; i <= 9; i++ {
+		err = client.Write("test" + strconv.Itoa(i))
+		if err != nil {
+			log.Fatal("errClientWrite ", err)
+		}
 	}
 }
