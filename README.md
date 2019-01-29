@@ -20,21 +20,19 @@ import (
 )
 
 func main() {
-	name := "test"
-	ns, err := nsocket.NewServer(
-		name,
-		func(server *nsocket.Server, client *nsocket.Client, message string) {
-			log.Println("server:", message)
-			// err := client.Write(message)
-			err := server.Broadcast(message)
-			if err != nil {
-				log.Println("broadcastErr: ", err)
-			}
-		},
-	)
+	ns, err := NewServer("test")
 	if err != nil {
-		log.Println(err)
+		log.Fatal(err)
 	}
+	go func() {
+		for {
+			select {
+			case msg := <-ns.onMessage:
+				msg.client.Write("_test" + strconv.Itoa(count))
+				ns.Broadcast(msg.data, msg.client.path)
+			}
+		}
+	}()
 	ns.Start()
 }
 ```
@@ -49,13 +47,12 @@ import (
 )
 
 func main() {
-	name := "test"
-	client, err := nsocket.Dial(name)
+	client, err := nsocket.Dial("test", "one/two/three")
 	if err != nil {
 		log.Println(err)
 	}
 
-	err = client.Write("test")
+	err = client.Write("9")
 	if err != nil {
 		log.Println("errWrite: ", err)
 	}
@@ -67,7 +64,7 @@ func main() {
 			break
 		}
 		log.Println("client:", message)
-		if message == "test" {
+		if message == "9" {
 			client.Close()
 			break
 		}

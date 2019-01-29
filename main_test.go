@@ -10,22 +10,26 @@ import (
 
 func TestStartAndDial(t *testing.T) {
 	name := "test"
+	count := 0
 
 	// Server
-	ns, err := NewServer(name, func(server *Server, client *Client, message string) {
-		err := server.Broadcast(message)
-		if err != nil {
-			log.Fatal("writeErr", err)
-		}
-	})
+	ns, err := NewServer(name)
 	if err != nil {
 		log.Fatal(err)
 	}
+	go func() {
+		for {
+			select {
+			case msg := <-ns.onMessage:
+				msg.client.Write("_test" + strconv.Itoa(count))
+				ns.Broadcast(msg.data, msg.client.path)
+			}
+		}
+	}()
 	go ns.Start()
 
 	// Client
-	client, err := Dial(name)
-	count := 0
+	client, err := Dial(name, "one/two/three")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -38,20 +42,16 @@ func TestStartAndDial(t *testing.T) {
 			}
 		}
 	}()
-
-	for {
-		msg, err := client.Read()
-		if err != nil {
-			log.Fatal(err)
-			break
-		}
-		// log.Println(msg)
+	msg, err := client.Read()
+	for err == nil {
+		log.Println(msg)
 		count++
 		if msg == "test9" {
 			client.Close()
 			ns.Close()
 			break
 		}
+		msg, err = client.Read()
 	}
-	require.Equal(t, 9, count)
+	require.Equal(t, 18, count)
 }

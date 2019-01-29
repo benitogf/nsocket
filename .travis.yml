@@ -7,7 +7,6 @@ go:
   - 1.11.x
 
 install:
-  - go get -u -f -v golang.org/x/sys
   - go get github.com/stretchr/testify
 
 script: go test -v -coverprofile cover.out -count 1 -failfast

@@ -11,22 +11,27 @@ import (
 	"time"
 )
 
+// Message data and origin
+type Message struct {
+	client *Client
+	data   string
+}
+
 // Server nsocket server
 type Server struct {
 	Server    net.Listener
 	clients   []*Client
 	name      string
 	silence   bool
-	onMessage onMessageCallback
+	onMessage chan Message
 }
 
 // Client of the nsocket server
 type Client struct {
 	rw   *bufio.ReadWriter
 	conn net.Conn
+	path string
 }
-
-type onMessageCallback func(server *Server, client *Client, message string)
 
 // Write from client
 func (client *Client) Write(msg string) error {
@@ -66,16 +71,15 @@ func (ns *Server) CloseClient(client *Client) {
 }
 
 // Broadcast to all clients
-func (ns *Server) Broadcast(msg string) error {
-	var err error
+func (ns *Server) Broadcast(msg string, path string) {
 	for _, v := range ns.clients {
-		err = v.Write(msg)
-		if err != nil {
-			log.Println("broadcastErr: ", err)
-			break
+		if v.path == path {
+			err := v.Write(msg)
+			if err != nil {
+				log.Println("broadcastErr: ", err)
+			}
 		}
 	}
-	return err
 }
 
 // Close the server
@@ -92,15 +96,15 @@ func (ns *Server) Close() error {
 }
 
 func (ns *Server) readClient(client *Client) {
-	for {
-		buf, err := client.Read()
-		if err != nil {
-			log.Println("readClientErr", err)
-			break
+	msg, err := client.Read()
+	for err == nil {
+		ns.onMessage <- Message{
+			client: client,
+			data:   msg,
 		}
-		ns.onMessage(ns, client, buf)
+		msg, err = client.Read()
 	}
-	log.Println("closingClient")
+	log.Println("closingClient", err)
 	ns.CloseClient(client)
 }
 
@@ -120,19 +124,20 @@ func (ns *Server) Start() {
 		}
 		ns.clients = append(ns.clients, newClient)
 		// handshake message
-		err = newClient.Write("handshake")
+		msg, err := newClient.Read()
 		if err != nil {
-			log.Println("writeErr", err)
-		} else {
-			go ns.readClient(newClient)
+			log.Fatal(errors.New("handshake message failed"))
 		}
+		newClient.path = msg
+		log.Println("path: ", msg)
+		go ns.readClient(newClient)
 	}
 	log.Println("shutdown")
 	ns.clients = []*Client{}
 }
 
 // Dial to a named socket
-func Dial(name string) (*Client, error) {
+func Dial(name string, path string) (*Client, error) {
 	var err error
 	var client net.Conn
 	if runtime.GOOS == "windows" {
@@ -144,16 +149,13 @@ func Dial(name string) (*Client, error) {
 		return nil, err
 	}
 
-	rw := bufio.NewReadWriter(bufio.NewReader(client), bufio.NewWriter(client))
 	newClient := Client{
-		rw:   rw,
+		rw:   bufio.NewReadWriter(bufio.NewReader(client), bufio.NewWriter(client)),
 		conn: client,
+		path: path,
 	}
-	msg, err := newClient.Read()
+	err = newClient.Write(path)
 	if err != nil {
-		return nil, err
-	}
-	if msg != "handshake" {
 		return nil, errors.New("handshake message failed")
 	}
 
@@ -161,21 +163,16 @@ func Dial(name string) (*Client, error) {
 }
 
 // NewServer returns a server pointer
-func NewServer(name string, onMessage onMessageCallback) (*Server, error) {
+func NewServer(name string) (*Server, error) {
 	var err error
 
 	if name == "" {
 		return nil, errors.New("the name of the socket server can't be empty")
 	}
 
-	// Default to echo broadcast
-	if onMessage == nil {
-		return nil, errors.New("onMessage fuction can't be empty")
-	}
-
 	ns := &Server{
 		name:      name,
-		onMessage: onMessage,
+		onMessage: make(chan Message, 1),
 	}
 	if runtime.GOOS == "windows" {
 		ns.Server, err = Listen(`\\.\pipe\`+ns.name+`.sock`, nil)
