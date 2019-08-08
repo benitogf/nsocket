@@ -20,9 +20,9 @@ func TestStartAndDial(t *testing.T) {
 	go func() {
 		for {
 			select {
-			case msg := <-ns.onMessage:
-				msg.client.Write("_test" + strconv.Itoa(count))
-				ns.Broadcast(msg.data, msg.client.path)
+			case msg := <-ns.OnMessage:
+				msg.Client.Write("_test" + strconv.Itoa(count))
+				ns.Broadcast(msg.Data, msg.Client.Path)
 			}
 		}
 	}()

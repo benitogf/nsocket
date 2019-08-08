@@ -13,38 +13,38 @@ import (
 
 // Message data and origin
 type Message struct {
-	client *Client
-	data   string
+	Client *Client
+	Data   string
 }
 
 // Server nsocket server
 type Server struct {
 	Server    net.Listener
-	clients   []*Client
-	name      string
-	silence   bool
-	onMessage chan Message
+	Clients   []*Client
+	Name      string
+	Silence   bool
+	OnMessage chan Message
 }
 
 // Client of the nsocket server
 type Client struct {
-	rw   *bufio.ReadWriter
-	conn net.Conn
-	path string
+	Buf  *bufio.ReadWriter
+	Conn net.Conn
+	Path string
 }
 
 // Write from client
 func (client *Client) Write(msg string) error {
-	_, err := client.rw.WriteString(msg + "\n")
+	_, err := client.Buf.WriteString(msg + "\n")
 	if err != nil {
 		return err
 	}
-	return client.rw.Flush()
+	return client.Buf.Flush()
 }
 
 // Read client
 func (client *Client) Read() (string, error) {
-	buf, err := client.rw.ReadString('\n')
+	buf, err := client.Buf.ReadString('\n')
 	if err != nil {
 		return "", err
 	}
@@ -53,27 +53,27 @@ func (client *Client) Read() (string, error) {
 
 // Close client
 func (client *Client) Close() {
-	client.conn.Close()
+	client.Conn.Close()
 }
 
 // CloseClient removes client buffer from the list
 func (ns *Server) CloseClient(client *Client) {
 	clientIndex := -1
-	for i := range ns.clients {
-		if ns.clients[i] == client {
+	for i := range ns.Clients {
+		if ns.Clients[i] == client {
 			clientIndex = i
 			break
 		}
 	}
 	if clientIndex != -1 {
-		ns.clients = append(ns.clients[:clientIndex], ns.clients[clientIndex+1:]...)
+		ns.Clients = append(ns.Clients[:clientIndex], ns.Clients[clientIndex+1:]...)
 	}
 }
 
 // Broadcast to all clients
 func (ns *Server) Broadcast(msg string, path string) {
-	for _, v := range ns.clients {
-		if v.path == path {
+	for _, v := range ns.Clients {
+		if v.Path == path {
 			err := v.Write(msg)
 			if err != nil {
 				log.Println("broadcastErr: ", err)
@@ -86,7 +86,7 @@ func (ns *Server) Broadcast(msg string, path string) {
 func (ns *Server) Close() error {
 	if ns.Server != nil {
 		err := ns.Server.Close()
-		for len(ns.clients) > 0 {
+		for len(ns.Clients) > 0 {
 			time.Sleep(100 * time.Millisecond)
 		}
 		return err
@@ -98,9 +98,9 @@ func (ns *Server) Close() error {
 func (ns *Server) readClient(client *Client) {
 	msg, err := client.Read()
 	for err == nil {
-		ns.onMessage <- Message{
-			client: client,
-			data:   msg,
+		ns.OnMessage <- Message{
+			Client: client,
+			Data:   msg,
 		}
 		msg, err = client.Read()
 	}
@@ -110,7 +110,6 @@ func (ns *Server) readClient(client *Client) {
 
 // Start a named socket, blocks by reading
 func (ns *Server) Start() {
-	log.Println("glad to serve")
 	for {
 		newConn, err := ns.Server.Accept()
 		if err != nil {
@@ -119,21 +118,21 @@ func (ns *Server) Start() {
 		}
 		log.Println("newClient")
 		newClient := &Client{
-			conn: newConn,
-			rw:   bufio.NewReadWriter(bufio.NewReader(newConn), bufio.NewWriter(newConn)),
+			Conn: newConn,
+			Buf:  bufio.NewReadWriter(bufio.NewReader(newConn), bufio.NewWriter(newConn)),
 		}
-		ns.clients = append(ns.clients, newClient)
+		ns.Clients = append(ns.Clients, newClient)
 		// handshake message
 		msg, err := newClient.Read()
 		if err != nil {
 			log.Fatal(errors.New("handshake message failed"))
 		}
-		newClient.path = msg
+		newClient.Path = msg
 		log.Println("path: ", msg)
 		go ns.readClient(newClient)
 	}
 	log.Println("shutdown")
-	ns.clients = []*Client{}
+	ns.Clients = []*Client{}
 }
 
 // Dial to a named socket
@@ -150,9 +149,9 @@ func Dial(name string, path string) (*Client, error) {
 	}
 
 	newClient := Client{
-		rw:   bufio.NewReadWriter(bufio.NewReader(client), bufio.NewWriter(client)),
-		conn: client,
-		path: path,
+		Buf:  bufio.NewReadWriter(bufio.NewReader(client), bufio.NewWriter(client)),
+		Conn: client,
+		Path: path,
 	}
 	err = newClient.Write(path)
 	if err != nil {
@@ -171,17 +170,17 @@ func NewServer(name string) (*Server, error) {
 	}
 
 	ns := &Server{
-		name:      name,
-		onMessage: make(chan Message, 1),
+		Name:      name,
+		OnMessage: make(chan Message, 1),
 	}
 	if runtime.GOOS == "windows" {
-		ns.Server, err = Listen(`\\.\pipe\`+ns.name+`.sock`, nil)
+		ns.Server, err = Listen(`\\.\pipe\`+ns.Name+`.sock`, nil)
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		os.RemoveAll("/tmp/" + ns.name + ".sock")
-		ns.Server, err = net.Listen("unix", `/tmp/`+ns.name+`.sock`)
+		os.RemoveAll("/tmp/" + ns.Name + ".sock")
+		ns.Server, err = net.Listen("unix", `/tmp/`+ns.Name+`.sock`)
 		if err != nil {
 			return nil, err
 		}
